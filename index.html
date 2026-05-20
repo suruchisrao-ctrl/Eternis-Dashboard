@@ -390,8 +390,15 @@
         </select>
         <label style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute);margin-left:8px">X-Axis</label>
         <select id="xaxisSelect" onchange="updateChart()">
+          <option value="timepoint">Timepoint</option>
+          <option value="trigger">Trigger</option>
           <option value="date">Date</option>
           <option value="day">Day #</option>
+        </select>
+        <label style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute);margin-left:8px">Group by</label>
+        <select id="groupSelect" onchange="updateChart()">
+          <option value="runid">Run ID</option>
+          <option value="reactor">Reactor</option>
         </select>
       </div>
     </div>
@@ -742,81 +749,153 @@ function jsonOut_(o) { return ContentService.createTextOutput(JSON.stringify(o))
   function updateChart() {
     const metric = document.getElementById('metricSelect').value;
     const xAxis = document.getElementById('xaxisSelect').value;
+    const groupBy = document.getElementById('groupSelect').value;
     const canvas = document.getElementById('chartCanvas');
     if (!canvas || typeof Chart === 'undefined') return;
 
     if (chart) { chart.destroy(); chart = null; }
-
     if (filteredRuns.length === 0) return;
 
-    // Group by reactor, sort by x-axis
-    const byReactor = {};
+    const isCategorical = xAxis === 'timepoint';
+
+    // Group entries by the chosen series field
+    const groups = {};
     filteredRuns.forEach(r => {
-      const rx = r.reactor || 'unspecified';
-      if (!byReactor[rx]) byReactor[rx] = [];
-      const xRaw = xAxis === 'date' ? r.date : r.day;
+      const groupKey = r[groupBy] || 'unspecified';
+      if (!groups[groupKey]) groups[groupKey] = [];
+
+      const xRaw = r[xAxis];
       const y = parseFloat(r[metric]);
-      if (!xRaw || isNaN(y)) return;
-      const x = xAxis === 'date' ? new Date(xRaw).getTime() : parseFloat(xRaw);
-      if (isNaN(x)) return;
-      byReactor[rx].push({ x, y, label: xAxis === 'date' ? fmtDate(xRaw) : 'Day ' + xRaw });
+      if (xRaw === null || xRaw === undefined || xRaw === '' || isNaN(y)) return;
+
+      let xVal;
+      if (xAxis === 'date') {
+        const d = new Date(xRaw);
+        if (isNaN(d)) return;
+        xVal = d.getTime();
+      } else if (isCategorical) {
+        xVal = String(xRaw);
+      } else {
+        xVal = parseFloat(xRaw);
+        if (isNaN(xVal)) return;
+      }
+      groups[groupKey].push({ x: xVal, y, raw: xRaw });
     });
 
-    // Get all x values across reactors, sorted
-    const allX = new Set();
-    Object.values(byReactor).forEach(arr => arr.forEach(p => allX.add(p.x)));
-    const sortedX = Array.from(allX).sort((a,b) => a - b);
-    const labels = sortedX.map(x => xAxis === 'date' ? fmtDate(new Date(x).toISOString()) : 'Day ' + x);
+    // Sort within each group
+    Object.values(groups).forEach(arr => {
+      if (isCategorical) arr.sort((a, b) => String(a.x).localeCompare(String(b.x), undefined, { numeric: true }));
+      else arr.sort((a, b) => a.x - b.x);
+    });
 
-    // Build datasets with null gaps for missing points
-    const palette = ['#2d5043','#c89642','#b85c3e','#5a7f9e','#8a6020','#6ab560','#9e6a8f'];
-    const datasets = Object.entries(byReactor).map(([reactor, points], i) => {
-      points.sort((a,b) => a.x - b.x);
-      const map = new Map(points.map(p => [p.x, p.y]));
-      return {
-        label: reactor,
-        data: sortedX.map(x => map.has(x) ? map.get(x) : null),
+    const palette = ['#2d5043','#c89642','#b85c3e','#5a7f9e','#8a6020','#6ab560','#9e6a8f','#3d6b5a','#a8794d','#7a4d3a'];
+
+    let chartConfig;
+    if (isCategorical) {
+      // Category scale: build aligned arrays with sort-aware ordering
+      const allLabels = new Set();
+      Object.values(groups).forEach(arr => arr.forEach(p => allLabels.add(p.x)));
+      const labels = Array.from(allLabels).sort((a,b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+
+      const datasets = Object.entries(groups).map(([key, points], i) => {
+        // Multiple points at same X within a group → average them
+        const bucket = {};
+        points.forEach(p => { (bucket[p.x] = bucket[p.x] || []).push(p.y); });
+        return {
+          label: key,
+          data: labels.map(l => bucket[l] ? bucket[l].reduce((a,b)=>a+b,0)/bucket[l].length : null),
+          borderColor: palette[i % palette.length],
+          backgroundColor: palette[i % palette.length] + '33',
+          borderWidth: 2,
+          tension: 0.2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          spanGaps: true
+        };
+      });
+
+      chartConfig = {
+        type: 'line',
+        data: { labels, datasets },
+        options: commonChartOptions(metric, xAxis)
+      };
+    } else {
+      // Numeric X: use {x,y} arrays, linear scale
+      const datasets = Object.entries(groups).map(([key, points], i) => ({
+        label: key,
+        data: points.map(p => ({ x: p.x, y: p.y })),
         borderColor: palette[i % palette.length],
         backgroundColor: palette[i % palette.length] + '33',
         borderWidth: 2,
         tension: 0.2,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         spanGaps: true
-      };
-    });
+      }));
 
-    chart = new Chart(canvas.getContext('2d'), {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            align: 'end',
-            labels: { font: { family: "'IBM Plex Sans'", size: 11 }, boxWidth: 12, padding: 12, color: '#4a4d48' }
-          },
-          tooltip: {
-            backgroundColor: '#1a1d1a',
-            titleFont: { family: "'IBM Plex Mono'", size: 11 },
-            bodyFont: { family: "'IBM Plex Sans'", size: 12 },
-            padding: 10,
-            cornerRadius: 0
+      const opts = commonChartOptions(metric, xAxis);
+      opts.scales.x = {
+        type: 'linear',
+        ticks: {
+          font: { family: "'IBM Plex Mono'", size: 10 },
+          color: '#8a8a82',
+          callback: function(value) {
+            if (xAxis === 'date') {
+              return new Date(value).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+            }
+            return value;
           }
         },
-        scales: {
-          x: { ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' }, grid: { color: '#e8e2d3' } },
-          y: {
-            title: { display: true, text: colLabel(metric), font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
-            ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
-            grid: { color: '#e8e2d3' }
+        grid: { color: '#e8e2d3' },
+        title: { display: true, text: xAxisLabel(xAxis), font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' }
+      };
+
+      chartConfig = { type: 'line', data: { datasets }, options: opts };
+    }
+
+    chart = new Chart(canvas.getContext('2d'), chartConfig);
+  }
+
+  function xAxisLabel(x) {
+    return ({ date: 'Date', day: 'Day #', timepoint: 'Timepoint', trigger: 'Trigger' }[x]) || x;
+  }
+
+  function commonChartOptions(metric, xAxis) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: { font: { family: "'IBM Plex Sans'", size: 11 }, boxWidth: 12, padding: 12, color: '#4a4d48' }
+        },
+        tooltip: {
+          backgroundColor: '#1a1d1a',
+          titleFont: { family: "'IBM Plex Mono'", size: 11 },
+          bodyFont: { family: "'IBM Plex Sans'", size: 12 },
+          padding: 10,
+          cornerRadius: 0,
+          callbacks: {
+            title: function(items) {
+              if (!items.length) return '';
+              const v = items[0].parsed.x;
+              if (xAxis === 'date' && typeof v === 'number') return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+              return xAxisLabel(xAxis) + ': ' + (items[0].label || v);
+            }
           }
         }
+      },
+      scales: {
+        x: { ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' }, grid: { color: '#e8e2d3' }, title: { display: true, text: xAxisLabel(xAxis), font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' } },
+        y: {
+          title: { display: true, text: colLabel(metric), font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
+          ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
+          grid: { color: '#e8e2d3' }
+        }
       }
-    });
+    };
   }
 
   // ============ FILTER OPTIONS ============
