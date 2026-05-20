@@ -1,0 +1,1065 @@
+<!-- Ossus / Eternis Site — Run Tracker -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --paper: #f5f1e8;
+    --paper-deep: #ebe5d6;
+    --ink: #1a1d1a;
+    --ink-soft: #4a4d48;
+    --ink-mute: #8a8a82;
+    --rule: #d8d2c4;
+    --rule-soft: #e8e2d3;
+    --moss: #2d5043;
+    --moss-deep: #1d3a30;
+    --moss-soft: #c7d4ce;
+    --clay: #b85c3e;
+    --clay-soft: #f0d9cf;
+    --amber: #c89642;
+    --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body, html { background: var(--paper); }
+
+  .wrap {
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--paper);
+    min-height: 100vh;
+    background-image: radial-gradient(circle at 1px 1px, rgba(26,29,26,0.04) 1px, transparent 0);
+    background-size: 24px 24px;
+    padding: 32px 40px 60px 40px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .title-block .h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .title-block .h1 .italic { font-style: italic; color: var(--moss); }
+  .title-block .sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-mute);
+    margin-top: 8px;
+  }
+  .top-actions { display: flex; gap: 10px; align-items: center; }
+
+  /* BUTTONS */
+  .btn { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 10px 18px; background: var(--moss); color: var(--paper); border: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.01em; }
+  .btn:hover:not(:disabled) { background: var(--moss-deep); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--rule); }
+  .btn.ghost:hover { border-color: var(--ink-soft); color: var(--ink); }
+  .btn.danger { background: var(--clay); }
+  .btn.danger:hover { background: #9a4830; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* SYNC ROW */
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #6ab560; }
+  .sync-dot.syncing { background: var(--amber); animation: pulse 1.2s infinite; }
+  .sync-dot.err { background: var(--clay); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .side-link { background: none; border: none; color: var(--ink-mute); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; cursor: pointer; padding: 0; }
+  .side-link:hover { color: var(--moss); }
+
+  /* STATS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat { background: #fdfbf5; border: 1px solid var(--rule); padding: 20px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-mute); margin-bottom: 10px; }
+  .stat-val { font-family: var(--serif); font-size: 32px; font-weight: 400; color: var(--ink); letter-spacing: -0.02em; line-height: 1; }
+  .stat-val .unit { font-size: 13px; color: var(--ink-mute); font-style: italic; }
+  .stat-foot { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .stat.accent { background: var(--moss-deep); color: var(--paper); border-color: var(--moss); }
+  .stat.accent .stat-label, .stat.accent .stat-val { color: var(--paper); }
+  .stat.accent .stat-label, .stat.accent .stat-foot { color: rgba(245,241,232,0.6); }
+
+  /* CHART */
+  .chart-block {
+    background: #fdfbf5;
+    border: 1px solid var(--rule);
+    padding: 22px;
+    margin-bottom: 28px;
+  }
+  .chart-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .chart-title { font-family: var(--serif); font-size: 18px; font-weight: 500; }
+  .chart-title .italic { font-style: italic; color: var(--moss); }
+  .chart-controls { display: flex; gap: 8px; align-items: center; }
+  .chart-controls select {
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 10px;
+    border: 1px solid var(--rule);
+    background: #fff;
+  }
+  .chart-canvas-wrap { height: 280px; position: relative; }
+
+  /* FILTER BAR */
+  .filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 14px 18px;
+    background: #fdfbf5;
+    border: 1px solid var(--rule);
+    flex-wrap: wrap;
+  }
+  .filter-bar label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-mute);
+  }
+  .filter-bar select, .filter-bar input {
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 10px;
+    border: 1px solid var(--rule);
+    background: #fff;
+  }
+  .filter-bar .spacer { flex: 1; }
+  .filter-bar .count { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+
+  /* TABLE */
+  .table-wrap {
+    background: #fdfbf5;
+    border: 1px solid var(--rule);
+    overflow-x: auto;
+    overflow-y: visible;
+    max-width: 100%;
+  }
+  table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+  th, td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule-soft);
+    white-space: nowrap;
+  }
+  th {
+    background: var(--paper-deep);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  td { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+  td.text { font-family: var(--sans); font-size: 12px; }
+  td.num { text-align: right; }
+  tr { cursor: pointer; transition: background 0.1s; }
+  tbody tr:hover { background: #f0ebdb; }
+  tbody tr:hover td { color: var(--ink); }
+
+  .col-pin { position: sticky; left: 0; background: #fdfbf5; z-index: 1; border-right: 1px solid var(--rule); }
+  th.col-pin { background: var(--paper-deep); z-index: 3; }
+  tbody tr:hover .col-pin { background: #f0ebdb; }
+
+  .empty {
+    padding: 80px 20px;
+    text-align: center;
+    border: 1px dashed var(--rule);
+    color: var(--ink-mute);
+  }
+  .empty-title { font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--ink-soft); margin-bottom: 8px; }
+
+  /* MODAL */
+  .modal-bg { position: fixed; inset: 0; background: rgba(26,29,26,0.5); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--paper); border: 1px solid var(--rule); max-width: 760px; width: 100%; max-height: 92vh; overflow-y: auto; padding: 32px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); gap: 20px; }
+  .modal-title { font-family: var(--serif); font-weight: 400; font-size: 26px; letter-spacing: -0.01em; }
+  .modal-close { cursor: pointer; font-size: 24px; color: var(--ink-mute); background: none; border: none; padding: 0 4px; }
+
+  .group-head {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--moss);
+    margin: 18px 0 12px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .group-head:first-child { margin-top: 0; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-mute); margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 9px 11px; background: #fff; border: 1px solid var(--rule); font-family: var(--sans); font-size: 13px; color: var(--ink); transition: border-color 0.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--moss); }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .modal-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--rule); flex-wrap: wrap; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 12px 20px; font-size: 13px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--clay); }
+
+  /* SETUP */
+  .setup-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--paper);
+    background-image: radial-gradient(circle at 1px 1px, rgba(26,29,26,0.04) 1px, transparent 0);
+    background-size: 24px 24px;
+    z-index: 50;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 24px;
+    overflow-y: auto;
+  }
+  .setup-overlay.open { display: flex; }
+  .setup-card { background: #fdfbf5; border: 1px solid var(--rule); max-width: 720px; width: 100%; padding: 48px; }
+  .setup-title { font-family: var(--serif); font-size: 38px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.05; margin-bottom: 8px; }
+  .setup-title .italic { font-style: italic; color: var(--moss); }
+  .setup-sub { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--ink-mute); margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--rule); }
+  .step { margin-bottom: 24px; display: grid; grid-template-columns: 32px 1fr; gap: 16px; }
+  .step-num { font-family: var(--serif); font-size: 22px; color: var(--moss); font-style: italic; line-height: 1.1; }
+  .step-body h3 { font-family: var(--sans); font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--ink); }
+  .step-body p { font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+  .step-body a { color: var(--moss); text-decoration: underline; }
+  .step-body .hint { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 6px; }
+  .code-block { position: relative; background: var(--moss-deep); color: var(--paper); padding: 14px 16px; font-family: var(--mono); font-size: 11px; max-height: 200px; overflow: auto; margin-top: 10px; line-height: 1.5; white-space: pre; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: var(--amber); color: var(--moss-deep); border: none; font-family: var(--mono); font-size: 10px; padding: 6px 10px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; font-weight: 600; }
+  .setup-form { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--rule); }
+  .setup-foot { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+  .setup-note { font-size: 12px; color: var(--ink-mute); line-height: 1.5; max-width: 60%; }
+
+  .loading-screen { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; z-index: 40; flex-direction: column; gap: 14px; }
+  .loading-screen .spinner { width: 24px; height: 24px; border: 2px solid var(--rule); border-top-color: var(--moss); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.15em; }
+
+  @media (max-width: 900px) {
+    .wrap { padding: 24px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row2 { grid-template-columns: 1fr; }
+    .title-block .h1 { font-size: 30px; }
+    .setup-card { padding: 28px; }
+  }
+</style>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading…</div>
+</div>
+
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-card">
+    <h1 class="setup-title">Connect <span class="italic">Eternis Sheet</span></h1>
+    <div class="setup-sub">One-time setup · 5 minutes · separate Sheet from main R&amp;D log</div>
+
+    <div class="step"><div class="step-num">i</div><div class="step-body">
+      <h3>Create a Google Sheet</h3>
+      <p>Open <a href="https://sheets.new" target="_blank" rel="noopener">sheets.new</a> and name it "Ossus Eternis — Runs". Leave it empty.</p>
+    </div></div>
+
+    <div class="step"><div class="step-num">ii</div><div class="step-body">
+      <h3>Open Apps Script</h3>
+      <p>In the Sheet: <strong>Extensions ▸ Apps Script</strong>. Delete the default stub.</p>
+    </div></div>
+
+    <div class="step"><div class="step-num">iii</div><div class="step-body">
+      <h3>Paste this code</h3>
+      <p>Paste below into the editor, then click Save.</p>
+      <div class="code-block" id="scriptCode"></div>
+      <button class="copy-btn" onclick="copyScript()">Copy</button>
+    </div></div>
+
+    <div class="step"><div class="step-num">iv</div><div class="step-body">
+      <h3>Deploy as a web app</h3>
+      <p><strong>Deploy ▸ New deployment</strong>. Click the ⚙ gear → choose <strong>Web app</strong>.</p>
+      <p class="hint">Execute as: <strong>Me</strong> &nbsp;·&nbsp; Who has access: <strong>Anyone</strong></p>
+      <p>Deploy. Authorize when prompted.</p>
+    </div></div>
+
+    <div class="step"><div class="step-num">v</div><div class="step-body">
+      <h3>Copy the Web App URL</h3>
+      <p>Copy the URL ending in <code>/exec</code> and paste it below.</p>
+    </div></div>
+
+    <div class="setup-form">
+      <div class="field">
+        <label>Web App URL (ends in /exec)</label>
+        <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Your Name</label>
+          <input type="text" id="userNameInput" placeholder="e.g. operator-1">
+        </div>
+        <div class="field">
+          <label>Shared Secret (optional)</label>
+          <input type="text" id="secretInput" placeholder="Leave blank if not used">
+        </div>
+      </div>
+      <div class="setup-foot">
+        <div class="setup-note">"Anyone" access is needed for the dashboard to read/write without OAuth. Keep the URL internal; use a shared secret for extra protection.</div>
+        <button class="btn" onclick="completeSetup()">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="wrap" style="display:none">
+  <div class="topbar">
+    <div class="title-block">
+      <div class="h1">Ossus / <span class="italic">Eternis Site</span></div>
+      <div class="sub">Reactor run log · gas · pH · conductivity</div>
+    </div>
+    <div class="top-actions">
+      <div class="sync-row">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Synced</span>
+        <span style="opacity:.5;margin:0 6px">·</span>
+        <span id="userLabel">—</span>
+      </div>
+      <button class="btn ghost btn-sm" onclick="refresh()">↻ Refresh</button>
+      <button class="side-link" onclick="openSettings()">⚙ Settings</button>
+      <button class="btn" onclick="openModal()">+ New Run</button>
+    </div>
+  </div>
+
+  <div class="stats" id="statsRow"></div>
+
+  <div class="chart-block">
+    <div class="chart-head">
+      <div class="chart-title"><span class="italic">Trend</span> across runs</div>
+      <div class="chart-controls">
+        <label style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute)">Metric</label>
+        <select id="metricSelect" onchange="updateChart()">
+          <option value="h2pct">H₂ %</option>
+          <option value="co2pct">CO₂ %</option>
+          <option value="totalgas">Total Gas</option>
+          <option value="h2vol">H₂ Volume</option>
+          <option value="co2vol">CO₂ Volume</option>
+          <option value="current">Current</option>
+          <option value="voltage">Voltage</option>
+          <option value="ph_reac_tend">Reactor pH (end)</option>
+          <option value="cond_reac_tend">Reactor Conductivity (end)</option>
+        </select>
+        <label style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute);margin-left:8px">X-Axis</label>
+        <select id="xaxisSelect" onchange="updateChart()">
+          <option value="date">Date</option>
+          <option value="day">Day #</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-canvas-wrap">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label>Reactor</label>
+    <select id="reactorFilter" onchange="applyFilter()">
+      <option value="">All</option>
+    </select>
+    <label style="margin-left:10px">Mode</label>
+    <select id="modeFilter" onchange="applyFilter()">
+      <option value="">All</option>
+    </select>
+    <label style="margin-left:10px">Search</label>
+    <input type="text" id="searchInput" placeholder="run ID, feedstock, notes…" oninput="applyFilter()">
+    <div class="spacer"></div>
+    <span class="count" id="rowCount">—</span>
+    <button class="btn ghost btn-sm" onclick="exportCsv()">↓ Export CSV</button>
+  </div>
+
+  <div class="table-wrap" id="tableWrap"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============ APPS SCRIPT CODE (for setup screen) ============
+  const APPS_SCRIPT_CODE = `const SECTIONS = ['runs'];
+const SECRET = '';
+
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const result = {};
+    SECTIONS.forEach(name => { result[name] = readSheet_(getOrCreateSheet_(ss, name)); });
+    return jsonOut_({ ok: true, data: result });
+  } catch (err) { return jsonOut_({ ok: false, error: String(err) }); }
+}
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    if (SECRET && body.secret !== SECRET) return jsonOut_({ ok: false, error: 'Unauthorized' });
+    const { action, section, entry, id } = body;
+    if (!SECTIONS.includes(section)) return jsonOut_({ ok: false, error: 'Invalid section' });
+    const sheet = getOrCreateSheet_(SpreadsheetApp.getActiveSpreadsheet(), section);
+    if (action === 'add') {
+      const e2 = Object.assign({}, entry, { _id: Utilities.getUuid(), _created: new Date().toISOString(), _updated: new Date().toISOString() });
+      writeEntry_(sheet, e2);
+      return jsonOut_({ ok: true, entry: e2 });
+    }
+    if (action === 'update') {
+      const u = updateEntry_(sheet, id, entry);
+      return u ? jsonOut_({ ok: true, entry: u }) : jsonOut_({ ok: false, error: 'Not found' });
+    }
+    if (action === 'delete') return jsonOut_({ ok: deleteEntry_(sheet, id) });
+    return jsonOut_({ ok: false, error: 'Unknown action' });
+  } catch (err) { return jsonOut_({ ok: false, error: String(err) }); }
+}
+
+function getOrCreateSheet_(ss, name) {
+  let s = ss.getSheetByName(name);
+  if (!s) {
+    s = ss.insertSheet(name);
+    s.appendRow(['_id','_user','_created','_updated']);
+    s.getRange(1,1,1,4).setFontWeight('bold').setBackground('#1d3a30').setFontColor('#f5f1e8');
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+function readSheet_(s) {
+  if (s.getLastRow() < 2) return [];
+  const h = s.getRange(1,1,1,s.getLastColumn()).getValues()[0];
+  const rows = s.getRange(2,1,s.getLastRow()-1,s.getLastColumn()).getValues();
+  return rows.map(r => { const o={}; h.forEach((k,i)=>{ if(k){ let v=r[i]; if(v instanceof Date) v=v.toISOString(); o[k]=v; } }); return o; }).filter(o => o._id);
+}
+function ensureCols_(s, keys) {
+  const lc = s.getLastColumn();
+  const h = lc>0 ? s.getRange(1,1,1,lc).getValues()[0] : [];
+  const miss = keys.filter(k => k && !h.includes(k));
+  if (miss.length) {
+    const start = h.length + 1;
+    s.getRange(1, start, 1, miss.length).setValues([miss]);
+    s.getRange(1, start, 1, miss.length).setFontWeight('bold').setBackground('#1d3a30').setFontColor('#f5f1e8');
+    return h.concat(miss);
+  }
+  return h;
+}
+function writeEntry_(s, e) {
+  const h = ensureCols_(s, Object.keys(e));
+  s.appendRow(h.map(k => e[k] === undefined || e[k] === null ? '' : e[k]));
+}
+function updateEntry_(s, id, e) {
+  if (s.getLastRow() < 2) return null;
+  const h = ensureCols_(s, Object.keys(e));
+  const ic = h.indexOf('_id'); if (ic < 0) return null;
+  const ids = s.getRange(2, ic+1, s.getLastRow()-1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (ids[i][0] === id) {
+      const rn = i + 2;
+      const ex = s.getRange(rn, 1, 1, h.length).getValues()[0];
+      const m = Object.assign({}, e, { _id: id, _updated: new Date().toISOString() });
+      h.forEach((k,j) => { if (m[k] === undefined && ex[j] !== '') m[k] = ex[j]; });
+      s.getRange(rn, 1, 1, h.length).setValues([h.map(k => m[k] !== undefined ? m[k] : '')]);
+      return m;
+    }
+  }
+  return null;
+}
+function deleteEntry_(s, id) {
+  if (s.getLastRow() < 2) return false;
+  const h = s.getRange(1,1,1,s.getLastColumn()).getValues()[0];
+  const ic = h.indexOf('_id'); if (ic < 0) return false;
+  const ids = s.getRange(2, ic+1, s.getLastRow()-1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) if (ids[i][0] === id) { s.deleteRow(i+2); return true; }
+  return false;
+}
+function jsonOut_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }`;
+
+  // ============ FIELD SCHEMA ============
+  const FIELDS = [
+    // Identification
+    { key: 'runid', label: 'Run ID', required: true, group: 'Identification', ph: 'R-2026-014' },
+    { key: 'date', label: 'Date', type: 'date', required: true, group: 'Identification' },
+    { key: 'reactor', label: 'Reactor', required: true, group: 'Identification', ph: 'R-01 / R-02' },
+    { key: 'day', label: 'Day #', type: 'number', group: 'Identification', ph: 'experiment day' },
+    { key: 'timepoint', label: 'Timepoint', group: 'Identification', ph: 't0, t6h, t24h' },
+    { key: 'mode', label: 'Mode', type: 'select', options: ['Batch','Fed-batch','Continuous','Recirculation','Other'], group: 'Identification' },
+    { key: 'trigger', label: 'Trigger', group: 'Identification', ph: 'Sampling / feed / fault' },
+    { key: 'feedstock', label: 'Feedstock', group: 'Identification', ph: 'Type / source' },
+
+    // Electrical
+    { key: 'voltage', label: 'Voltage (V)', type: 'number', group: 'Electrical' },
+    { key: 'current', label: 'Current (A)', type: 'number', group: 'Electrical' },
+
+    // Gas
+    { key: 'totalgas', label: 'Total Gas', type: 'number', group: 'Gas Production', ph: 'L or mL' },
+    { key: 'h2pct', label: 'H₂ %', type: 'number', group: 'Gas Production' },
+    { key: 'co2pct', label: 'CO₂ %', type: 'number', group: 'Gas Production' },
+    { key: 'h2vol', label: 'H₂ Volume', type: 'number', group: 'Gas Production' },
+    { key: 'co2vol', label: 'CO₂ Volume', type: 'number', group: 'Gas Production' },
+
+    // Fermenter
+    { key: 'ph_ferm_t0', label: 'pH ferm t₀', type: 'number', group: 'Fermenter (pH / Conductivity)' },
+    { key: 'cond_ferm_t0', label: 'Cond ferm t₀', type: 'number', group: 'Fermenter (pH / Conductivity)', ph: 'mS/cm' },
+    { key: 'ph_ferm_tend', label: 'pH ferm t_end', type: 'number', group: 'Fermenter (pH / Conductivity)' },
+    { key: 'cond_ferm_tend', label: 'Cond ferm t_end', type: 'number', group: 'Fermenter (pH / Conductivity)' },
+
+    // Reactor
+    { key: 'ph_reac_t0', label: 'pH reac t₀', type: 'number', group: 'Reactor (pH / Conductivity)' },
+    { key: 'cond_reac_t0', label: 'Cond reac t₀', type: 'number', group: 'Reactor (pH / Conductivity)', ph: 'mS/cm' },
+    { key: 'ph_reac_tend', label: 'pH reac t_end', type: 'number', group: 'Reactor (pH / Conductivity)' },
+    { key: 'cond_reac_tend', label: 'Cond reac t_end', type: 'number', group: 'Reactor (pH / Conductivity)' },
+
+    // Notes
+    { key: 'notes', label: 'Notes', type: 'textarea', group: 'Notes', full: true }
+  ];
+
+  // Columns to show in table (order matters)
+  const TABLE_COLS = [
+    'date','runid','reactor','day','timepoint','mode','trigger','feedstock',
+    'voltage','current','totalgas','h2pct','co2pct','h2vol','co2vol',
+    'ph_ferm_t0','cond_ferm_t0','ph_ferm_tend','cond_ferm_tend',
+    'ph_reac_t0','cond_reac_t0','ph_reac_tend','cond_reac_tend',
+    'notes','_user'
+  ];
+  const TEXT_COLS = new Set(['runid','reactor','timepoint','mode','trigger','feedstock','notes','_user','date']);
+
+  // ============ STORAGE ============
+  const memFallback = {};
+  const LocalStore = {
+    async get(key) {
+      try { if (window.storage && window.storage.get) { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } } catch (e) { return null; }
+      return memFallback[key] ? JSON.parse(memFallback[key]) : null;
+    },
+    async set(key, value) {
+      const v = JSON.stringify(value);
+      try { if (window.storage && window.storage.set) { await window.storage.set(key, v); return; } } catch (e) {}
+      memFallback[key] = v;
+    }
+  };
+
+  let config = { apiUrl: '', userName: '', secret: '' };
+  async function loadConfig() {
+    const c = await LocalStore.get('_eternis_config');
+    if (c) config = { ...config, ...c };
+  }
+  async function saveConfig() { await LocalStore.set('_eternis_config', config); }
+
+  // ============ API ============
+  function setSync(state, msg) {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('syncText');
+    if (!dot || !txt) return;
+    dot.className = 'sync-dot ' + state;
+    txt.textContent = msg || ({ ok: 'Synced', syncing: 'Syncing…', err: 'Sync error' }[state] || '');
+  }
+
+  async function apiCall(method, body) {
+    if (!config.apiUrl) throw new Error('No API URL configured');
+    setSync('syncing');
+    const opts = { method, redirect: 'follow' };
+    if (body) {
+      const payload = { ...body };
+      if (config.secret) payload.secret = config.secret;
+      opts.body = JSON.stringify(payload);
+    }
+    let res;
+    try { res = await fetch(config.apiUrl, opts); }
+    catch (e) { setSync('err', 'Network'); throw new Error('Network error'); }
+    if (!res.ok) { setSync('err', 'HTTP ' + res.status); throw new Error('HTTP ' + res.status); }
+    let json;
+    try { json = await res.json(); }
+    catch (e) { setSync('err', 'Bad response'); throw new Error('Unexpected response — verify the URL ends in /exec'); }
+    if (!json.ok) { setSync('err', 'Error'); throw new Error(json.error || 'Unknown error'); }
+    setSync('ok', 'Synced · ' + new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }));
+    return json;
+  }
+
+  // ============ STATE ============
+  let runs = [];
+  let filteredRuns = [];
+  let chart = null;
+  let editingId = null;
+
+  async function reload() {
+    const res = await apiCall('GET');
+    runs = res.data.runs || [];
+    // Sort: latest first by date then by _created
+    runs.sort((a, b) => {
+      const ad = new Date(a.date || a._created || 0);
+      const bd = new Date(b.date || b._created || 0);
+      if (bd - ad !== 0) return bd - ad;
+      return new Date(b._created || 0) - new Date(a._created || 0);
+    });
+  }
+
+  // ============ HELPERS ============
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    try { const dt = new Date(d); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }); } catch { return d; }
+  }
+  function fmtNum(v) {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = parseFloat(v);
+    if (isNaN(n)) return v;
+    return n.toLocaleString('en-IN', { maximumFractionDigits: 3 });
+  }
+  function colLabel(key) {
+    const f = FIELDS.find(f => f.key === key);
+    return f ? f.label : key;
+  }
+
+  // ============ FILTER ============
+  function applyFilter() {
+    const reactor = document.getElementById('reactorFilter').value;
+    const mode = document.getElementById('modeFilter').value;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    filteredRuns = runs.filter(r => {
+      if (reactor && r.reactor !== reactor) return false;
+      if (mode && r.mode !== mode) return false;
+      if (q) {
+        const hay = [r.runid, r.feedstock, r.notes, r.trigger, r._user].map(x => String(x||'').toLowerCase()).join(' ');
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    renderTable();
+    updateChart();
+    document.getElementById('rowCount').textContent = filteredRuns.length + ' / ' + runs.length + ' runs';
+  }
+
+  // ============ STATS ============
+  function renderStats() {
+    const total = runs.length;
+    const latest = runs[0];
+    const h2vals = runs.map(r => parseFloat(r.h2pct)).filter(v => !isNaN(v));
+    const avgH2 = h2vals.length ? (h2vals.reduce((a,b)=>a+b,0)/h2vals.length).toFixed(1) : '—';
+    const bestH2run = runs.reduce((best, r) => {
+      const v = parseFloat(r.h2pct);
+      if (isNaN(v)) return best;
+      if (!best || v > parseFloat(best.h2pct)) return r;
+      return best;
+    }, null);
+    const totalH2vol = runs.map(r => parseFloat(r.h2vol)||0).reduce((a,b)=>a+b,0);
+
+    const stats = [
+      { label: 'Runs Logged', val: total, foot: latest ? 'Latest ' + fmtDate(latest.date) : '—', accent: true },
+      { label: 'Avg H₂ %', val: avgH2 === '—' ? '—' : avgH2, foot: h2vals.length + ' runs sampled', unit: avgH2 !== '—' ? ' %' : '' },
+      { label: 'Best H₂ %', val: bestH2run ? parseFloat(bestH2run.h2pct).toFixed(1) : '—', foot: bestH2run ? bestH2run.runid + ' · ' + (bestH2run.reactor || '') : '—', unit: bestH2run ? ' %' : '' },
+      { label: 'Total H₂ Volume', val: totalH2vol > 0 ? totalH2vol.toFixed(1) : '—', foot: 'sum across runs' }
+    ];
+
+    document.getElementById('statsRow').innerHTML = stats.map(s => `
+      <div class="stat${s.accent ? ' accent' : ''}">
+        <div class="stat-label">${esc(s.label)}</div>
+        <div class="stat-val">${esc(s.val)}${s.unit ? `<span class="unit">${s.unit}</span>` : ''}</div>
+        <div class="stat-foot">${esc(s.foot || '')}</div>
+      </div>
+    `).join('');
+  }
+
+  // ============ TABLE ============
+  function renderTable() {
+    const wrap = document.getElementById('tableWrap');
+    if (filteredRuns.length === 0) {
+      wrap.innerHTML = `<div class="empty"><div class="empty-title">${runs.length === 0 ? 'No runs logged' : 'No matches'}</div><div>${runs.length === 0 ? 'Click "+ New Run" to log the first one.' : 'Try clearing the filters.'}</div></div>`;
+      return;
+    }
+    let html = '<table><thead><tr>';
+    TABLE_COLS.forEach((c, i) => {
+      const cls = i < 2 ? ' col-pin' : '';
+      html += `<th class="${cls}">${esc(colLabel(c))}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    filteredRuns.forEach(r => {
+      html += `<tr onclick="openModal('${r._id}')">`;
+      TABLE_COLS.forEach((c, i) => {
+        let val = r[c];
+        if (c === 'date') val = fmtDate(val);
+        else if (TEXT_COLS.has(c)) val = val || '';
+        else val = fmtNum(val);
+        const isText = TEXT_COLS.has(c);
+        const isPin = i < 2;
+        const cls = (isPin ? 'col-pin ' : '') + (isText ? 'text' : 'num');
+        const display = c === 'notes' && val ? esc(String(val).slice(0, 60)) + (val.length > 60 ? '…' : '') : esc(val);
+        html += `<td class="${cls}">${display}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  // ============ CHART ============
+  function updateChart() {
+    const metric = document.getElementById('metricSelect').value;
+    const xAxis = document.getElementById('xaxisSelect').value;
+    const canvas = document.getElementById('chartCanvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (chart) { chart.destroy(); chart = null; }
+
+    if (filteredRuns.length === 0) return;
+
+    // Group by reactor, sort by x-axis
+    const byReactor = {};
+    filteredRuns.forEach(r => {
+      const rx = r.reactor || 'unspecified';
+      if (!byReactor[rx]) byReactor[rx] = [];
+      const xRaw = xAxis === 'date' ? r.date : r.day;
+      const y = parseFloat(r[metric]);
+      if (!xRaw || isNaN(y)) return;
+      const x = xAxis === 'date' ? new Date(xRaw).getTime() : parseFloat(xRaw);
+      if (isNaN(x)) return;
+      byReactor[rx].push({ x, y, label: xAxis === 'date' ? fmtDate(xRaw) : 'Day ' + xRaw });
+    });
+
+    // Get all x values across reactors, sorted
+    const allX = new Set();
+    Object.values(byReactor).forEach(arr => arr.forEach(p => allX.add(p.x)));
+    const sortedX = Array.from(allX).sort((a,b) => a - b);
+    const labels = sortedX.map(x => xAxis === 'date' ? fmtDate(new Date(x).toISOString()) : 'Day ' + x);
+
+    // Build datasets with null gaps for missing points
+    const palette = ['#2d5043','#c89642','#b85c3e','#5a7f9e','#8a6020','#6ab560','#9e6a8f'];
+    const datasets = Object.entries(byReactor).map(([reactor, points], i) => {
+      points.sort((a,b) => a.x - b.x);
+      const map = new Map(points.map(p => [p.x, p.y]));
+      return {
+        label: reactor,
+        data: sortedX.map(x => map.has(x) ? map.get(x) : null),
+        borderColor: palette[i % palette.length],
+        backgroundColor: palette[i % palette.length] + '33',
+        borderWidth: 2,
+        tension: 0.2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        spanGaps: true
+      };
+    });
+
+    chart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: { font: { family: "'IBM Plex Sans'", size: 11 }, boxWidth: 12, padding: 12, color: '#4a4d48' }
+          },
+          tooltip: {
+            backgroundColor: '#1a1d1a',
+            titleFont: { family: "'IBM Plex Mono'", size: 11 },
+            bodyFont: { family: "'IBM Plex Sans'", size: 12 },
+            padding: 10,
+            cornerRadius: 0
+          }
+        },
+        scales: {
+          x: { ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' }, grid: { color: '#e8e2d3' } },
+          y: {
+            title: { display: true, text: colLabel(metric), font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
+            ticks: { font: { family: "'IBM Plex Mono'", size: 10 }, color: '#8a8a82' },
+            grid: { color: '#e8e2d3' }
+          }
+        }
+      }
+    });
+  }
+
+  // ============ FILTER OPTIONS ============
+  function updateFilterOptions() {
+    const reactors = [...new Set(runs.map(r => r.reactor).filter(Boolean))].sort();
+    const modes = [...new Set(runs.map(r => r.mode).filter(Boolean))].sort();
+    const rsel = document.getElementById('reactorFilter');
+    const msel = document.getElementById('modeFilter');
+    const rcur = rsel.value, mcur = msel.value;
+    rsel.innerHTML = '<option value="">All</option>' + reactors.map(r => `<option value="${esc(r)}" ${r===rcur?'selected':''}>${esc(r)}</option>`).join('');
+    msel.innerHTML = '<option value="">All</option>' + modes.map(m => `<option value="${esc(m)}" ${m===mcur?'selected':''}>${esc(m)}</option>`).join('');
+  }
+
+  // ============ MODAL ============
+  function openModal(id = null) {
+    editingId = id;
+    const entry = id ? runs.find(r => r._id === id) || {} : {};
+
+    // Group fields
+    const groups = {};
+    FIELDS.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
+
+    let formHtml = '';
+    Object.entries(groups).forEach(([group, fields]) => {
+      formHtml += `<div class="group-head">${esc(group)}</div>`;
+      let buf = null;
+      const flush = () => { if (buf) { formHtml += `<div class="row2">${buf}</div>`; buf = null; } };
+      fields.forEach(f => {
+        const isFull = f.full || f.type === 'textarea';
+        const fh = `<div class="field">${renderField(f, entry[f.key])}</div>`;
+        if (isFull) { flush(); formHtml += fh; }
+        else {
+          if (buf === null) buf = '';
+          buf += fh;
+          if (buf.split('<div class="field">').length - 1 === 2) flush();
+        }
+      });
+      flush();
+    });
+
+    document.getElementById('modal').innerHTML = `
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">${id ? 'Edit Run' : 'New Run'}</div>
+          <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute);margin-top:4px">${id ? esc(entry.runid || '') : 'Log a reactor run'}</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <form id="entryForm">
+        ${formHtml}
+        <div class="modal-foot">
+          ${id ? `<button type="button" class="btn danger btn-sm" onclick="del()">Delete</button>` : '<div></div>'}
+          <div style="display:flex;gap:10px">
+            <button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
+            <button type="submit" class="btn" id="saveBtn">Save</button>
+          </div>
+        </div>
+      </form>
+    `;
+    document.getElementById('modalBg').classList.add('open');
+    document.getElementById('entryForm').addEventListener('submit', save);
+  }
+
+  function renderField(f, val) {
+    val = val === undefined || val === null ? '' : val;
+    const req = f.required ? 'required' : '';
+    let input;
+    if (f.type === 'textarea') input = `<textarea name="${f.key}" placeholder="${esc(f.ph||'')}" ${req}>${esc(val)}</textarea>`;
+    else if (f.type === 'select') {
+      const opts = ['<option value="">—</option>'].concat(f.options.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`)).join('');
+      input = `<select name="${f.key}" ${req}>${opts}</select>`;
+    }
+    else if (f.type === 'date') input = `<input type="date" name="${f.key}" value="${esc(val)}" ${req}>`;
+    else if (f.type === 'number') input = `<input type="number" step="any" name="${f.key}" value="${esc(val)}" placeholder="${esc(f.ph||'')}" ${req}>`;
+    else input = `<input type="text" name="${f.key}" value="${esc(val)}" placeholder="${esc(f.ph||'')}" ${req}>`;
+    return `<label>${esc(f.label)}${f.required?' *':''}</label>${input}`;
+  }
+
+  function closeModal() {
+    document.getElementById('modalBg').classList.remove('open');
+    editingId = null;
+  }
+
+  async function save(ev) {
+    ev.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const fd = new FormData(ev.target);
+    const entry = {};
+    for (const [k, v] of fd.entries()) entry[k] = v;
+    entry._user = config.userName || 'anon';
+    try {
+      if (editingId) {
+        const res = await apiCall('POST', { action: 'update', section: 'runs', id: editingId, entry });
+        const idx = runs.findIndex(r => r._id === editingId);
+        if (idx >= 0) runs[idx] = res.entry;
+        toast('Updated');
+      } else {
+        const res = await apiCall('POST', { action: 'add', section: 'runs', entry });
+        runs.unshift(res.entry);
+        runs.sort((a, b) => new Date(b.date||b._created||0) - new Date(a.date||a._created||0));
+        toast('Logged');
+      }
+      closeModal();
+      rerender();
+    } catch (e) {
+      toast(e.message, true);
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  async function del() {
+    if (!confirm('Delete this run from the Sheet?')) return;
+    if (!editingId) { closeModal(); return; }
+    try {
+      await apiCall('POST', { action: 'delete', section: 'runs', id: editingId });
+      runs = runs.filter(r => r._id !== editingId);
+      closeModal();
+      rerender();
+      toast('Deleted');
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  function rerender() {
+    renderStats();
+    updateFilterOptions();
+    applyFilter();
+  }
+
+  async function refresh() {
+    try { await reload(); rerender(); toast('Refreshed'); }
+    catch (e) { toast(e.message, true); }
+  }
+
+  // ============ CSV EXPORT ============
+  function exportCsv() {
+    if (filteredRuns.length === 0) { toast('Nothing to export', true); return; }
+    const cols = TABLE_COLS;
+    const header = cols.map(c => `"${c}"`).join(',');
+    const lines = filteredRuns.map(r => cols.map(c => {
+      let v = r[c];
+      if (v === null || v === undefined) v = '';
+      return `"${String(v).replace(/"/g, '""')}"`;
+    }).join(','));
+    const csv = header + '\n' + lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'eternis-runs-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Exported ' + filteredRuns.length + ' rows');
+  }
+
+  // ============ TOAST ============
+  let toastTimer;
+  function toast(msg, isErr = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.className = 'toast' + (isErr ? ' err' : ''), 2500);
+  }
+
+  // ============ SETUP ============
+  function showSetup() {
+    document.getElementById('scriptCode').textContent = APPS_SCRIPT_CODE;
+    document.getElementById('apiUrlInput').value = config.apiUrl || '';
+    document.getElementById('userNameInput').value = config.userName || '';
+    document.getElementById('secretInput').value = config.secret || '';
+    document.getElementById('setupOverlay').classList.add('open');
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('wrap').style.display = 'none';
+  }
+
+  function copyScript() {
+    navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => toast('Script copied'))
+      .catch(() => toast('Copy failed — select manually', true));
+  }
+
+  async function completeSetup() {
+    const url = document.getElementById('apiUrlInput').value.trim();
+    const name = document.getElementById('userNameInput').value.trim();
+    const secret = document.getElementById('secretInput').value.trim();
+    if (!url || !name) { toast('URL and name required', true); return; }
+    if (!/script\.google\.com.*\/exec$/.test(url)) {
+      if (!confirm('That URL doesn\'t look like a /exec deployment URL. Continue anyway?')) return;
+    }
+    config = { apiUrl: url, userName: name, secret };
+    await saveConfig();
+    document.getElementById('setupOverlay').classList.remove('open');
+    document.getElementById('loadingScreen').style.display = 'flex';
+    document.getElementById('loadingText').textContent = 'Connecting…';
+    try {
+      await reload();
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('wrap').style.display = 'block';
+      document.getElementById('userLabel').textContent = config.userName;
+      rerender();
+      toast('Connected');
+    } catch (e) {
+      toast(e.message, true);
+      showSetup();
+    }
+  }
+
+  function openSettings() { showSetup(); }
+
+  // Expose
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+  window.del = del;
+  window.refresh = refresh;
+  window.copyScript = copyScript;
+  window.completeSetup = completeSetup;
+  window.openSettings = openSettings;
+  window.applyFilter = applyFilter;
+  window.exportCsv = exportCsv;
+  window.updateChart = updateChart;
+
+  // ============ BOOT ============
+  (async () => {
+    await loadConfig();
+    if (!config.apiUrl || !config.userName) { showSetup(); return; }
+    document.getElementById('loadingText').textContent = 'Loading Eternis runs…';
+    try {
+      await reload();
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('wrap').style.display = 'block';
+      document.getElementById('userLabel').textContent = config.userName;
+      rerender();
+    } catch (e) {
+      toast(e.message, true);
+      showSetup();
+    }
+  })();
+
+  window.addEventListener('focus', () => {
+    if (config.apiUrl && document.getElementById('wrap').style.display !== 'none') {
+      reload().then(() => rerender()).catch(() => {});
+    }
+  });
+</script>
